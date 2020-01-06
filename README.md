@@ -11,6 +11,25 @@ Platform game (only first level) using my own game engine (POC) based on HTML + 
 - Inspect http://spritedatabase.net (sprite sheets of arcade games).
 - See Raiden fight against Cody.
 
+<table>
+	<tr>
+		<th width="420px" align="center">
+		<img width="400px" src="https://github.com/mfontanadev/appPoliticFight/blob/master/doc/appPoliticFight_2.jpg?raw=true">
+		</th>
+		<th width="420px" align="center">
+		<img width="400px" src="https://github.com/mfontanadev/appPoliticFight/blob/master/doc/appPoliticFight_1.jpg?raw=true">
+		</th>
+	</tr>
+	<tr>
+		<th align="center">
+			Universes in collision
+		</th>
+		<th align="center">
+			Testing mirror enemy
+		</th>
+	</tr>
+</table>
+
 ## Building a new version
 
 The idea is copy all relevand files to a single folder. To do that, you can use batch file.
