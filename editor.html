@@ -1,0 +1,434 @@
+<!DOCTYPE HTML>
+<html>
+<!--SOME GENERAL NOTES 
+0) THANKS TO http://spritedatabase.net (sprite sheets)
+1) 384 X 224 is 12:7 aspect ratio MAME plays in 4:3 ratio screen size is different.
+2) Our screen game will be 768 * 448 this is 2 x (384 x 224)  
+-->
+
+	<head>
+		<style>
+			body 
+			{
+				margin: 0px;
+				padding: 0px;
+			}
+			#myCanvas 
+			{
+				border: 1px solid #FF0000;
+			}
+			div
+			{
+				 visibility: hidden;
+				 display: none;
+			}
+		</style>
+	
+		<script language="javascript" type="text/javascript" src="lib\chlib.js"></script>
+		<script language="javascript" type="text/javascript" src="classes\hero.js"></script>
+		<script language="javascript" type="text/javascript" src="classes\enemy.js"></script>
+		<script language="javascript" type="text/javascript" src="classes\maze.js"></script>
+		<script language="javascript" type="text/javascript" src="editor\editor.js"></script>
+		<script language="javascript" type="text/javascript" src="editor\framer.js"></script>
+
+		<script language="javascript" type="text/javascript" src="classes\decoration.js"></script>
+		<script language="javascript" type="text/javascript" src="classes\level.js"></script>
+		<script language="javascript" type="text/javascript" src="classes\score.js"></script>
+		<script language="javascript" type="text/javascript" src="classes\animation.js"></script>
+		<script language="javascript" type="text/javascript" src="classes\potion.js"></script>
+		<script language="javascript" type="text/javascript" src="framework\resourceMngr.js"></script>
+		<script language="javascript" type="text/javascript" src="framework\keyboardMngr.js"></script>
+		<script language="javascript" type="text/javascript" src="framework\joystickMngr.js"></script>
+		<script language="javascript" type="text/javascript" src="framework\fontMngr.js"></script>
+		<script language="javascript" type="text/javascript" src="framework\storageMngr.js"></script>
+		<script language="javascript" type="text/javascript" src="framework\sndManager.js"></script>
+		<script language="javascript" type="text/javascript" src="framework\consts.js"></script>
+
+		<script language="javascript" type="text/javascript" src="classes\viewIntro.js"></script>
+		<script language="javascript" type="text/javascript" src="classes\viewPlay.js"></script>
+		<script language="javascript" type="text/javascript" src="classes\viewHelp.js"></script>
+		<script language="javascript" type="text/javascript" src="classes\viewLevel.js"></script>
+
+		<script language="javascript" type="text/javascript" src="editor\viewEdition.js"></script>
+		<script language="javascript" type="text/javascript" src="editor\viewFramer.js"></script>
+		
+		<script language="javascript" type="text/javascript" src="data\game_data.js"></script>
+
+		<script>
+			// Thanks to
+			// http://www.canvasdemos.com/2009/07/09/game-development-tutorials/
+			
+			// Frequency controler.
+			var m_startTime = 0;
+			var m_elapsedTime = 0;
+		  
+			// Graphics
+			var m_canvas = null;
+			var m_context = null;
+			var m_mousePosX = 0;
+			var m_mousePosY = 0;
+			var m_mouseClick = false;
+			
+			// Singletons
+			var m_appState = 0;
+			var m_resourceMngr = null;
+			var m_keyboardMngr = null;
+			var m_fontMngr = null;
+			var m_storeMngr = null;
+			var m_editorMngr = null;
+			var m_sndManager = null;
+			var m_joystickMngr = null;
+
+			var m_renderTime = 1;
+			
+			// ***************************************
+			// App vars
+			// ***************************************
+			var m_editor = new Editor();
+			var m_framer = new Framer();
+			var m_score = new Score();
+			
+			var m_viewIntro = new ViewIntro();
+			var m_viewPlay = new ViewPlay();
+			var m_viewHelp = new ViewHelp();
+			var m_viewLevel = new ViewLevel();
+			var m_viewEdition = new ViewEdition();
+			var m_viewFramer = new ViewFramer();
+			
+			// ***************************************
+			// Entry point
+			// ***************************************
+			window.onload = function() 
+			{
+		
+				m_appState = C_APP_STATE_INTRO;
+				
+				// Init context.
+				m_canvas = document.getElementById('myCanvas');
+				m_context = m_canvas.getContext('2d');
+
+				// Init local store managar
+				m_storeMngr = new StorageMngr();
+				m_storeMngr.initWith(C_LOCAL_STORE_NAMESPACE);
+				//m_storeMngr.showAll();
+				
+				// Init grafical resource manager.
+				m_resourceMngr = new ResourceMngr();
+				m_resourceMngr.initWith
+				(
+					// Al terminar de cargar las images ejecutar la funcion.
+					function()
+					{
+						initAfterBitmapsLoaded();
+					}
+				);
+			};
+
+			function initAfterBitmapsLoaded() 
+			{
+				msglog("Bitmaps loaded");
+
+				m_sndManager = new SndManager();
+				m_sndManager.initWith
+				(
+					m_soundFiles,
+					function()
+					{
+						msglog('callback sound function');
+						initAfterSoundsLoaded();
+					},
+					true
+				);
+				m_sndManager.load();
+			}
+
+			function initAfterSoundsLoaded() 
+			{
+				msglog("Sounds loaded");
+
+				// Init keykoard manager
+				m_joystickMngr = new JoystickMngr();
+				m_joystickMngr.initWith();
+
+				// Mouse events
+				m_canvas.addEventListener('mousemove', function(evt) 
+				{
+					var rect = m_canvas.getBoundingClientRect();
+					m_mousePosX =  evt.clientX - rect.left;
+					m_mousePosY =  evt.clientY - rect.top;
+				}, false);
+
+				m_canvas.addEventListener('mouseup', function(evt) 
+				{
+					m_mouseClick = false;
+				}, false);
+				
+				m_canvas.addEventListener('mousedown', function(evt) 
+				{
+					m_mouseClick = true;
+				}, false);
+
+				m_mousePosX = m_canvas.width / 2;
+				m_mousePosY = m_canvas.height / 2;
+
+				// Init keykoard manager
+				m_keyboardMngr = new KeyboardMngr();
+				m_keyboardMngr.initWith();
+
+            	document.onkeydown = function(event) 
+            	{
+            		//logmsg.log("Key down: " + event.keyCode);
+					m_keyboardMngr.keyDown(event.keyCode);
+					return false;
+            	}
+            	
+            	document.onkeyup = function(event) 
+            	{
+					m_keyboardMngr.keyUp(event.keyCode);
+					return false;
+				}
+
+				// Init font mngr
+				m_fontMngr = new FontMngr();
+				m_fontMngr.initWith();
+
+				// Score
+				m_score.initWith();
+				m_editor.initWith();
+				m_framer.initWith();
+				
+				// Init timer counter.
+				m_startTime = (new Date()).getTime();
+
+				m_viewIntro.initWith(m_editor);
+				m_viewPlay.initWith(m_editor);
+				m_viewHelp.initWith(m_editor);
+				m_viewLevel.initWith(m_editor);
+				m_viewEdition.initWith(m_editor);
+			
+				btnFramer();
+				animate();
+			}
+
+			// Game loop		  
+			function animate() 
+			{
+				// handle inputs
+				handleInputs();
+
+				// updates
+				if (updateTimer() == true)
+				{
+					// game logic
+					implementGameLogic();
+				}
+
+				// render
+				render(m_canvas, m_context);
+
+				// log
+				if (C_LOG == true)
+				{
+					//var message = 'Mouse position: ' + m_mousePosX + ',' + m_mousePosY + ", fps=" + Math.round(1000 / m_elapsedTime,0);
+					//writeMessage(m_context, message, C_DEBUG_MODE);
+				}
+													
+				// request new frame
+				requestAnimFrame(function() { animate(); });
+			}
+
+			// Update timer.
+			function updateTimer()
+			{
+				var result = false;
+				
+				m_elapsedTime = (new Date()).getTime() - m_startTime;
+				m_startTime = (new Date()).getTime();
+				
+				if (m_renderTime > 0)	
+					m_renderTime += getElapsedTime();
+					
+			 	if (m_renderTime > 1000 / C_FPS_RENDER)
+			 	{
+			 		m_renderTime = 1;
+			 		result = true;
+			 	}
+			 	
+			 	return result;	
+			}
+		  
+			// Get cycle time
+			function getElapsedTime()
+			{
+				return m_elapsedTime;
+			}
+
+			// Handle input
+			function handleInputs()
+			{
+				m_keyboardMngr.implementGameLogic();
+				m_joystickMngr.implementGameLogic(m_keyboardMngr);
+				
+				switch(m_appState)
+				{
+					case C_APP_STATE_INTRO:
+						m_viewIntro.handleInputs();
+					break;
+
+					case C_APP_STATE_PLAY:
+						m_viewPlay.handleInputs();
+					break;
+
+					case C_APP_STATE_HELP:
+						m_viewHelp.handleInputs();
+					break;
+
+					case C_APP_STATE_LEVEL:
+						m_viewLevel.handleInputs();
+					break;
+
+					case C_APP_STATE_EDITION:
+						m_viewEdition.handleInputs();
+					break;
+
+					case C_APP_STATE_FRAMER:
+						m_viewFramer.handleInputs();
+					break;
+				}
+			}
+
+			// Implement game logic.
+			function implementGameLogic()
+			{
+				switch(m_appState)
+				{
+					case C_APP_STATE_INTRO:
+						m_viewIntro.implementGameLogic();
+					break;
+
+					case C_APP_STATE_PLAY:
+						m_viewPlay.implementGameLogic();
+					break;
+
+					case C_APP_STATE_HELP:
+						m_viewHelp.implementGameLogic();
+					break;
+
+					case C_APP_STATE_LEVEL:
+						m_viewLevel.implementGameLogic();
+					break;
+
+					case C_APP_STATE_EDITION:
+						m_viewEdition.implementGameLogic();
+					break;
+
+					case C_APP_STATE_FRAMER:
+						m_viewFramer.implementGameLogic();
+					break;
+				}
+			}
+			
+			// Render		  
+			function render(_canvas, _context)
+			{
+				// clear
+				_context.clearRect(0, 0, _canvas.width, _canvas.height);
+
+				switch(m_appState)
+				{
+					case C_APP_STATE_INTRO:
+						m_viewIntro.render(_canvas, _context);
+					break;
+
+					case C_APP_STATE_PLAY:
+						m_viewPlay.render(_canvas, _context);
+					break;
+
+					case C_APP_STATE_HELP:
+						m_viewHelp.render(_canvas, _context);
+					break;
+
+					case C_APP_STATE_LEVEL:
+						m_viewLevel.render(_canvas, _context);
+					break;
+
+					case C_APP_STATE_EDITION:
+						m_viewEdition.render(_canvas, _context);
+					break;
+					
+					case C_APP_STATE_FRAMER:
+						m_viewFramer.render(_canvas, _context);
+					break;					
+				}
+				
+				//m_keyboardMngr.showKeyboardMatrix(_canvas, _context);
+				if (C_DEBUG_SHOW_JOYSTICK == true)
+					m_joystickMngr.render(_canvas, _context);
+			}
+
+			// Looping callback
+			window.requestAnimFrame = (function(callback) 
+			{
+				return window.requestAnimationFrame || 
+				window.webkitRequestAnimationFrame || 
+				window.mozRequestAnimationFrame || 
+				window.oRequestAnimationFrame || 
+				window.msRequestAnimationFrame ||
+				function(callback) 
+				{
+				  window.setTimeout(callback, 1);
+				};
+			})();
+			
+			function btnEdition()
+			{ 
+				m_appState = C_APP_STATE_EDITION;
+				m_editor.stop();
+				m_editor.initWith();
+			}
+			function btnFramer()
+			{ 
+				m_appState = C_APP_STATE_FRAMER;
+				m_framer.stop();
+				m_framer.initWith();
+			}
+
+			
+		</script>
+	</head>
+  
+	<body bgcolor="#101010">
+	
+		<div align="center" style="display: block; visibility: visible;">
+			<table>
+			<row>
+				<p style="font-size:11pt;font-family:Calibri;color:silver;line-height:0pt;">Politic Fight Editor (v1.0.0)</p>
+			</row>
+			<row>
+				<p style="font-size:10pt;font-family:Calibri;color:lime;line-height:0pt;">by Mauricio E. Fontana (mfontanadev@gmail.com)</p>
+			</row>
+			</br>
+			</table>
+		</div>
+
+		<div align="center" style="display: block; visibility: visible;">
+			<table>
+				<row>
+					<td>
+						<canvas id="myCanvas" width="800" height="600" ></canvas>
+					</td>
+					<td>
+						<button id="id_btnEdition" style="width: 100px;" onclick="btnEdition()">Edition (F1)</button>
+						<br>
+						<button id="id_btnFramer" style="width: 100px;" onclick="btnFramer()">Framer (F2)</button>
+						<br>
+					</td>
+				</row>
+			</table>
+		</div>
+		</div>
+
+
+	</body>
+  
+</html>
